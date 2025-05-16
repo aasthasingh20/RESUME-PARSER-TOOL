@@ -1,0 +1,103 @@
+import React, { useState } from 'react';
+import FileUpload from './components/FileUpload';
+import ResultsView from './components/ResultsView';
+import SkillFilter from './components/SkillFilter';
+import './styles.css';
+
+function App() {
+  const [results, setResults] = useState(null);
+  const [resumes, setResumes] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const handleUpload = async (file) => {
+    setIsLoading(true);
+    setError(null);
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    try {
+      const response = await fetch('http://localhost:5000/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to process resume');
+      }
+      
+      const data = await response.json();
+      setResults(data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSkillFilter = async (skills) => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const response = await fetch(`http://localhost:5000/resumes?skills=${skills.join(',')}`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch resumes');
+      }
+      
+      const data = await response.json();
+      setResumes(data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="app">
+      <header>
+        <h1>Resume Parser Tool</h1>
+        <p>Upload resumes to extract and categorize candidate information</p>
+      </header>
+      
+      <div className="container">
+        <div className="upload-section">
+          <FileUpload onUpload={handleUpload} isLoading={isLoading} />
+          {error && <div className="error">{error}</div>}
+          {results && <ResultsView data={results} />}
+        </div>
+        
+        <div className="database-section">
+          <SkillFilter onFilter={handleSkillFilter} />
+          <div className="resumes-list">
+            {resumes.length > 0 ? (
+              resumes.map(resume => (
+                <div key={resume.id} className="resume-card">
+                  <h3>{resume.name}</h3>
+                  <p><strong>Email:</strong> {resume.email || 'Not available'}</p>
+                  <p><strong>Phone:</strong> {resume.phone || 'Not available'}</p>
+                  <div>
+                    <strong>Skills:</strong>
+                    <ul>
+                      {resume.skills.map((skill, i) => <li key={i}>{skill}</li>)}
+                    </ul>
+                  </div>
+                  <div className="preview">
+                    <p><strong>Preview:</strong> {resume.raw_text}</p>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p>No resumes found. Upload some resumes or try different filters.</p>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default App;

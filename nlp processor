@@ -1,0 +1,112 @@
+import re
+import spacy
+from PyPDF2 import PdfReader
+from docx import Document
+from collections import defaultdict
+
+nlp = spacy.load('en_core_web_sm')
+
+def extract_text_from_file(filepath):
+    if filepath.endswith('.pdf'):
+        reader = PdfReader(filepath)
+        text = " ".join(page.extract_text() for page in reader.pages)
+    elif filepath.endswith('.docx'):
+        doc = Document(filepath)
+        text = "\n".join(para.text for para in doc.paragraphs)
+    elif filepath.endswith('.doc'):
+        # Requires antiword to be installed
+        import subprocess
+        result = subprocess.run(['antiword', filepath], stdout=subprocess.PIPE)
+        text = result.stdout.decode('utf-8')
+    else:  # txt
+        with open(filepath, 'r', encoding='utf-8') as f:
+            text = f.read()
+    return text
+
+def extract_contact_info(text):
+    email = re.search(r'[\w\.-]+@[\w\.-]+', text)
+    phone = re.search(r'(\+\d{1,2}\s?)?(\(\d{3}\)|\d{3})[\s.-]?\d{3}[\s.-]?\d{4}', text)
+    
+    return {
+        'email': email.group(0) if email else None,
+        'phone': phone.group(0) if phone else None
+    }
+
+def extract_skills(text):
+    doc = nlp(text)
+    
+    # List of common skills (can be expanded)
+    skills_list = [
+        'python', 'java', 'javascript', 'c++', 'c#', 'ruby', 'php', 'swift', 
+        'html', 'css', 'sql', 'nosql', 'mongodb', 'postgresql', 'mysql',
+        'react', 'angular', 'vue', 'django', 'flask', 'node.js', 'express',
+        'aws', 'azure', 'gcp', 'docker', 'kubernetes', 'jenkins', 'git',
+        'machine learning', 'deep learning', 'ai', 'data science', 'nlp',
+        'agile', 'scrum', 'devops', 'ci/cd', 'rest api', 'graphql'
+    ]
+    
+    skills = set()
+    for token in doc:
+        if token.text.lower() in skills_list:
+            skills.add(token.text.lower())
+    
+    # Extract skills from noun chunks
+    for chunk in doc.noun_chunks:
+        if chunk.text.lower() in skills_list:
+            skills.add(chunk.text.lower())
+    
+    return list(skills)
+
+def extract_experience(text):
+    doc = nlp(text)
+    
+    # Simple pattern matching for experience
+    experience = []
+    pattern = re.compile(
+        r'(\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*'
+        r'(?:\s*\d{4})?\s*(?:-|to)\s*'
+        r'(?:present|now|(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*'
+        r'(?:\s*\d{4})?)', re.IGNORECASE)
+    
+    matches = pattern.finditer(text)
+    for match in matches:
+        experience.append(match.group(0))
+    
+    return experience
+
+def extract_education(text):
+    doc = nlp(text)
+    
+    education = []
+    education_keywords = ['university', 'college', 'institute', 'school', 'bachelor', 'master', 'phd', 'mba']
+    
+    for sent in doc.sents:
+        for keyword in education_keywords:
+            if keyword in sent.text.lower():
+                education.append(sent.text)
+                break
+    
+    return education
+
+def process_resume(filepath):
+    text = extract_text_from_file(filepath)
+    
+    return {
+        'name': extract_name(text),
+        'contact_info': extract_contact_info(text),
+        'skills': extract_skills(text),
+        'experience': extract_experience(text),
+        'education': extract_education(text),
+        'raw_text': text[:1000] + '...'  # Store first 1000 chars for preview
+    }
+
+def extract_name(text):
+    doc = nlp(text)
+    
+    # The name is likely the first proper noun in the document
+    for ent in doc.ents:
+        if ent.label_ == "PERSON":
+            return ent.text
+    
+    # Fallback: first line
+    return text.split('\n')[0].strip()

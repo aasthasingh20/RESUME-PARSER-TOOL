@@ -1,0 +1,28 @@
+import React, { useState } from 'react';
+
+function SkillFilter({ onFilter }) {
+  const [skills, setSkills] = useState('');
+  
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const skillsArray = skills.split(',').map(s => s.trim()).filter(s => s);
+    onFilter(skillsArray);
+  };
+
+  return (
+    <div className="skill-filter">
+      <h2>Filter Resumes by Skills</h2>
+      <form onSubmit={handleSubmit}>
+        <input
+          type="text"
+          value={skills}
+          onChange={(e) => setSkills(e.target.value)}
+          placeholder="Enter skills separated by commas (e.g., python, java, react)"
+        />
+        <button type="submit">Search</button>
+      </form>
+    </div>
+  );
+}
+
+export default SkillFilter;
