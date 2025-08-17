@@ -62,7 +62,7 @@ frontend:      React application
 
 src:        React components and styles
 
-database:     SQL initialization scripts
+database:     SQL initialization scripts.
 
 
 
